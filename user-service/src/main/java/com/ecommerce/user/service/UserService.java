@@ -64,6 +64,7 @@ public class UserService {
         log.info("New user registered: {} with role: {}", request.getLoginId(), userRole);
     }
     
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         // 사용자 조회
         User user = userRepository.findById(request.getLoginId())

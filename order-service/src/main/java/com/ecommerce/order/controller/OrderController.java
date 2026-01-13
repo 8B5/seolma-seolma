@@ -8,6 +8,7 @@ import com.ecommerce.order.dto.OrderResponse;
 import com.ecommerce.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -66,7 +67,10 @@ public class OrderController {
     @PatchMapping("/{orderId}/status")
     public ApiResponse<Void> changeOrderStatus(
             @Parameter(description = "주문 ID", required = true) @PathVariable Long orderId,
-            @Parameter(description = "변경할 상태", required = true) @RequestParam OrderStatus status) {
+            @Parameter(description = "변경할 상태 (PAYMENT_COMPLETED, PREPARING, SHIPPING, DELIVERED, CANCELLED)", 
+                      required = true, 
+                      schema = @Schema(allowableValues = {"PAYMENT_COMPLETED", "PREPARING", "SHIPPING", "DELIVERED", "CANCELLED"})) 
+            @RequestParam OrderStatus status) {
         
         orderService.changeOrderStatus(orderId, status);
         return ApiResponse.success();

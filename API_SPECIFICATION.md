@@ -12,6 +12,7 @@
 
 ### 🔐 인증 방식
 - **JWT Bearer Token**: `Authorization: Bearer {token}`
+- **단일 토큰 시스템**: JWT AccessToken (1-8시간)
 - **권한 구분**: USER, ADMIN
 - **자동 사용자 ID 추출**: JWT 토큰에서 자동으로 사용자 ID를 추출하여 사용
 - **관리자 권한**: `@AdminOnly` 어노테이션을 통한 자동 권한 검증
@@ -48,6 +49,8 @@
 - **L0001**: 중복된 로그인 아이디
 - **L0002**: 잘못된 로그인 정보
 - **L0003**: 사용자를 찾을 수 없음
+- **U1008**: 유효하지 않은 리프레시 토큰
+- **U1009**: 리프레시 토큰 만료
 
 #### 상품 서비스 에러 코드
 - **P0001**: 상품을 찾을 수 없음
@@ -210,7 +213,7 @@ API 요청 시 필드 검증에 실패하면 해당 필드의 구체적인 에�
     "userName": "홍길동",
     "role": "USER"
   },
-  "timestamp": "2025-01-07T10:30:00"
+  "timestamp": "2025-01-11T10:30:00"
 }
 ```
 
@@ -764,15 +767,36 @@ JWT 토큰은 다음 정보를 포함합니다:
 
 ## 🚀 7. 배포 정보
 
-### 7.1 ALB 라우팅 규칙
-1. **Priority 1**: `/api/v1/coupons/**` → Coupon Service (포트 8082)
-2. **Default**: `/**` → 기타 모든 요청 → 각 서비스별 포트
+### 7.1 3-Tier 배포 구조
+**아키텍처**: Nginx (Tier 1) → Tomcat (Tier 2) → MariaDB (Tier 3)
 
-### 7.2 서비스 포트
-- User Service: 8080
-- Product Service: 8081  
-- Coupon Service: 8082
-- Order Service: 8083
+**개발환경**: 단일 서버에서 모든 서비스 실행
+**운영환경**: 서비스별 독립 배포
+
+#### EC2-1 (General Services)
+- **User Service** (포트 8080): 인증/사용자 관리
+- **Product Service** (포트 8081): 상품 조회/관리
+- **Order Service** (포트 8083): 주문 처리
+
+#### EC2-2 (Coupon Dedicated Server)  
+- **Coupon Service** (포트 8082): 쿠폰 발급/관리 전용
+- **목적**: 선착순 쿠폰 발급 시 트래픽 급증 모니터링
+
+### 7.2 Nginx 라우팅 규칙
+1. **쿠폰 API**: `/api/v1/coupons/**` → EC2-2 (전용 서버)
+2. **상품 API**: `/api/v1/products/**` → EC2-1
+3. **주문 API**: `/api/v1/orders/**` → EC2-1
+4. **사용자 API**: `/api/v1/users/**` → EC2-1 (Default)
+
+### 7.3 쿠폰 서버 최적화
+- **독립 서버**: 선착순 쿠폰 트래픽 격리
+- **캐시 비활성화**: `proxy_buffering off`, `proxy_cache off`
+- **동시성 제어**: synchronized 블록으로 안전한 발급
+- **모니터링**: EC2-2 리소스 사용량 독립 측정 가능
+
+### 7.3 토큰 공유 메커니즘
+- **JWT Secret Key**: 모든 서비스에서 동일한 키 사용
+- **Stateless 인증**: 어느 서버에서든 토큰 검증 가능
 
 ### 7.3 배포 형태
 - WAR 파일로 빌드
@@ -801,18 +825,22 @@ java -jar order-service/build/libs/order-service.war --server.port=8083
   - products (product_id BIGINT PK, name, seller_id VARCHAR(50), price, is_deleted, created_at)
   - product_images (image_id BIGINT PK, product_id, image_url, is_deleted, created_at)
   - orders (order_id BIGINT PK, user_id VARCHAR(50), orderer_name, shipping_address, product_id, product_snapshot_name, quantity, total_price, applied_coupon_id, payment_method, status, ordered_at, cancelled_at)
+  - **refresh_tokens** (token_id BIGINT PK, user_id VARCHAR(50), token_value VARCHAR(500), expires_at, is_revoked, created_at, last_used_at)
 
 - **coupon_db**:
   - coupon_templates (template_id BIGINT PK, title, discount_type, discount_value, started_at, finished_at, is_limited, total_quantity, is_deleted)
   - coupons (coupon_id BIGINT PK, template_id, user_id VARCHAR(50), is_used, used_at, issued_at)
 
-### 8.3 보안 고려사항
+### 8.3 JWT 토큰 시스템
+- **AccessToken**: 유효기간 (1-8시간), API 인증용
+- **Stateless**: JWT 토큰 자체에 모든 정보 포함
+- **자동 만료**: 토큰 만료 시 재로그인 필요
 - 모든 비밀번호는 BCrypt로 암호화
 - JWT 토큰은 HTTPS 환경에서만 사용 권장
 - 관리자 등록은 환경 변수 설정을 통해 제어 (운영환경에서는 ADMIN_SECRET_KEY 미설정 권장)
 - API 엔드포인트별 적절한 권한 검증
 
-### 8.4 성능 최적화
+### 8.4 보안 고려사항
 - 데이터베이스 인덱스 설정 (user_id, product_id 등)
 - 페이징을 통한 메모리 효율성
 - 서비스 간 통신 최적화 (WebClient 사용)

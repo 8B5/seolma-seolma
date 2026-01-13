@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 public enum LoginResultCode implements ResultCode {
     LOGIN_SUCCESS("U0000", "로그인 성공"),
     SIGNUP_SUCCESS("U0001", "회원가입 성공"),
+    LOGOUT_SUCCESS("U0003", "로그아웃 성공"),
+    
     INVALID_CREDENTIALS("U1000", "아이디 또는 비밀번호가 올바르지 않습니다"),
     USER_NOT_FOUND("U1001", "존재하지 않는 사용자입니다"),
     DUPLICATE_LOGIN_ID("U1002", "이미 사용 중인 로그인 아이디입니다"),

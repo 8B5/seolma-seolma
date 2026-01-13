@@ -31,7 +31,10 @@ public class SignupRequest {
     @Schema(description = "사용자 이름", example = "홍길동", required = true)
     private String userName;
     
-    @Schema(description = "사용자 권한 (USER: 일반 사용자, ADMIN: 관리자)", example = "USER", defaultValue = "USER")
+    @Schema(description = "사용자 권한 (USER: 일반 사용자, ADMIN: 관리자)", 
+            example = "USER", 
+            allowableValues = {"USER", "ADMIN"},
+            defaultValue = "USER")
     private UserRole role;
     
     public SignupRequest(String loginId, String password, String userName) {

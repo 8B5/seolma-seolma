@@ -18,7 +18,9 @@ public class CouponTemplateCreateRequest {
     @Size(max = 100, message = "쿠폰명은 100자 이하여야 합니다")
     private String title;
     
-    @Schema(description = "할인 타입", example = "FIXED", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "할인 타입", example = "FIXED_AMOUNT", 
+            allowableValues = {"PERCENT", "FIXED_AMOUNT"}, 
+            requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "할인 타입은 필수입니다")
     private DiscountType discountType;
     

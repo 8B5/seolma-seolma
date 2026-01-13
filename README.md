@@ -6,7 +6,7 @@
 
 ### 시스템 구조
 - **아키텍처**: MSA (Microservices Architecture)
-- **인프라**: AWS 3-Tier (ALB - EC2 - RDS)
+- **인프라**: AWS 3-Tier (Nginx - Tomcat - RDS)
 - **네트워크**: PRD/DEV VPC 완전 분리
 - **배포**: WAR 형태로 Standalone Tomcat 10에 배포
 
@@ -15,6 +15,16 @@
 - **Product Service** (포트 8081): 상품 관리 → `common_db`
 - **Coupon Service** (포트 8082): 쿠폰 발급 및 관리 → `coupon_db`
 - **Order Service** (포트 8083): 주문 및 결제 → `common_db`
+
+### 배포 구조 (3-Tier)
+- **Tier 1**: Nginx (Load Balancer/API Gateway)
+- **Tier 2**: Tomcat (Application Servers)
+- **Tier 3**: MariaDB (Database)
+
+**개발환경**: 단일 서버에서 모든 서비스 실행
+**운영환경**: 서비스별 독립 배포
+  - **EC2-1**: User + Product + Order (일반 서비스)
+  - **EC2-2**: Coupon 전용 (선착순 트래픽)
 
 ### 데이터베이스 구성
 - **common_db**: 사용자, 상품, 주문 정보
@@ -35,11 +45,12 @@
 - **Language**: Java 21
 - **Framework**: Spring Boot 3.x, Spring Security
 - **Database**: MariaDB, JPA (Hibernate)
-- **Security**: JWT (8시간 유효), BCrypt
+- **Security**: JWT (단일 토큰), BCrypt
 - **Build**: Gradle
 - **Documentation**: SpringDoc OpenAPI
 - **Test**: JUnit 5, AssertJ, Mockito
 - **File Storage**: Local File System (S3 마이그레이션 준비)
+- **Deployment**: 2-Tier MSA (Heavy/General Services)
 
 ## 📁 프로젝트 구조
 
@@ -84,11 +95,12 @@ ecommerce-msa/
 ## 🚀 주요 기능
 
 ### 🔐 인증 및 권한 관리
-- JWT 기반 인증 시스템
+- **단일 토큰 시스템**: JWT AccessToken (1-8시간)
 - 역할 기반 접근 제어 (USER, ADMIN)
 - 자동 사용자 ID 추출 (SecurityUtils.getCurrentUserId())
 - @AdminOnly 어노테이션을 통한 관리자 권한 자동 검증
 - 로그인 아이디 중복 확인 API
+- 토큰 갱신 및 로그아웃 기능
 
 ### 🛍️ 상품 관리
 - 관리자 전용 상품 CRUD 기능
@@ -158,10 +170,13 @@ COUPON_DB_NAME=coupon_db
 COUPON_DB_USERNAME=dev_user
 COUPON_DB_PASSWORD=dev_password
 
-# JWT (개발환경: 8시간, 운영환경: 1시간)
+# JWT (이중 토큰 시스템)
 JWT_SECRET=your-secret-key-here
-JWT_VALIDITY_DEV=28800
-JWT_VALIDITY_PRD=3600
+JWT_VALIDITY=3600  # JWT 토큰 유효기간 (초)
+
+# CORS 설정
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+CORS_ALLOWED_CREDENTIALS=true
 
 # 서비스 간 통신 URL
 PRODUCT_SERVICE_URL=http://localhost:8081
@@ -197,21 +212,44 @@ FILE_STORAGE_BASE_PATH=/tmp/uploads
 
 ## 🚀 배포
 
-### 1. Tomcat 설치 (EC2)
+### 1. 개발환경 (단일 서버)
 ```bash
+# 모든 서비스를 localhost에서 실행
+./gradlew :user-service:bootRun &
+./gradlew :product-service:bootRun &
+./gradlew :coupon-service:bootRun &
+./gradlew :order-service:bootRun &
+```
+
+### 2. 운영환경 (3-Tier 구조)
+
+#### EC2-1 (General Services)
+```bash
+# User Service + Product Service + Order Service
 cd deployment
 chmod +x tomcat-setup.sh
 sudo ./tomcat-setup.sh
+
+# 서비스 배포
+./deploy.sh user-service prd
+./deploy.sh product-service prd
+./deploy.sh order-service prd
 ```
 
-### 2. 서비스 배포
+#### EC2-2 (Coupon Dedicated Server)
 ```bash
-chmod +x deploy.sh
-./deploy.sh user-service dev
+# Coupon Service 전용 (선착순 트래픽 테스트용)
+cd deployment
+chmod +x tomcat-setup.sh
+sudo ./tomcat-setup.sh
+
+# 쿠폰 서비스만 배포
+./deploy.sh coupon-service prd
 ```
 
-### 3. Nginx 설정
+### 3. Nginx 설정 (API Gateway)
 ```bash
+# 3-Tier 구조용 Nginx 설정 적용
 sudo cp deployment/nginx.conf /etc/nginx/sites-available/ecommerce
 sudo ln -s /etc/nginx/sites-available/ecommerce /etc/nginx/sites-enabled/
 sudo systemctl reload nginx
@@ -238,17 +276,19 @@ sudo tail -f /var/log/nginx/error.log
 
 ## 🔐 보안 고려사항
 
-1. **JWT 토큰**: 
-   - 안전한 Secret Key 사용
-   - 개발환경: 8시간 유효 (편의성)
-   - 운영환경: 1시간 유효 (보안성)
+1. **JWT 토큰 시스템**: 
+   - **AccessToken**: 유효기간 (1-8시간), API 인증용
+   - 안전한 Secret Key 사용 (모든 서비스 공유)
    - 만료된 토큰: 401 Unauthorized 응답
-2. **비밀번호**: BCrypt 암호화
-3. **환경 변수**: 민감 정보는 환경 변수로 관리
-4. **HTTPS**: 운영 환경에서 HTTPS 필수
-5. **데이터 마스킹**: 개인정보 로깅 시 마스킹 처리
-6. **관리자 등록**: ADMIN_SECRET_KEY 환경 변수로 제어
-7. **권한 검증**: @AdminOnly 어노테이션을 통한 자동 권한 검증
+2. **토큰 보안**:
+   - Stateless JWT 토큰 사용
+   - 토큰 만료 시 재로그인 필요
+3. **비밀번호**: BCrypt 암호화
+4. **환경 변수**: 민감 정보는 환경 변수로 관리
+5. **HTTPS**: 운영 환경에서 HTTPS 필수
+6. **데이터 마스킹**: 개인정보 로깅 시 마스킹 처리
+7. **관리자 등록**: ADMIN_SECRET_KEY 환경 변수로 제어
+8. **권한 검증**: @AdminOnly 어노테이션을 통한 자동 권한 검증
 
 ## 📈 성능 최적화
 
@@ -264,10 +304,27 @@ sudo tail -f /var/log/nginx/error.log
 
 ### 일반적인 문제들
 
-#### JWT 토큰 만료 (401 Unauthorized)
+#### JWT 토큰 관련
 ```bash
-# 개발환경에서는 8시간 유효
-# 토큰 만료 시 재로그인 필요
+# AccessToken 만료 (401 Unauthorized)
+# → 재로그인 필요
+
+# 토큰 검증 실패
+# → JWT_SECRET 환경변수 확인 (모든 서비스 동일해야 함)
+```
+
+#### 3-Tier 배포 문제
+```bash
+# 서비스 간 통신 실패
+# → 환경변수 SERVICE_URL 확인
+# → EC2 보안그룹 포트 개방 확인
+
+# 쿠폰 서버 독립성 확인
+# → EC2-2에서 쿠폰 서비스만 실행 중인지 확인
+# → 선착순 발급 시 EC2-2 리소스 모니터링
+
+# 토큰이 다른 서버에서 인식 안됨
+# → JWT_SECRET이 모든 서비스에서 동일한지 확인
 ```
 
 #### Sort 파라미터 에러

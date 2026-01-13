@@ -7,6 +7,7 @@ import com.ecommerce.order.dto.OrderResponse;
 import com.ecommerce.order.service.AdminOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,7 +29,9 @@ public class AdminOrderController {
     @GetMapping
     public ApiResponse<Page<OrderResponse>> getAllOrders(
             @Parameter(description = "사용자 ID") @RequestParam(required = false) String userId,
-            @Parameter(description = "주문 상태") @RequestParam(required = false) OrderStatus status,
+            @Parameter(description = "주문 상태 (PAYMENT_COMPLETED, PREPARING, SHIPPING, DELIVERED, CANCELLED)",
+                      schema = @Schema(allowableValues = {"PAYMENT_COMPLETED", "PREPARING", "SHIPPING", "DELIVERED", "CANCELLED"})) 
+            @RequestParam(required = false) OrderStatus status,
             @Parameter(description = "상품 ID") @RequestParam(required = false) Long productId,
             @PageableDefault(size = 20, sort = "orderedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         
@@ -49,7 +52,10 @@ public class AdminOrderController {
     @PatchMapping("/{orderId}/status")
     public ApiResponse<Void> changeOrderStatus(
             @Parameter(description = "주문 ID", required = true) @PathVariable Long orderId,
-            @Parameter(description = "변경할 상태", required = true) @RequestParam OrderStatus status) {
+            @Parameter(description = "변경할 상태 (PAYMENT_COMPLETED, PREPARING, SHIPPING, DELIVERED, CANCELLED)", 
+                      required = true,
+                      schema = @Schema(allowableValues = {"PAYMENT_COMPLETED", "PREPARING", "SHIPPING", "DELIVERED", "CANCELLED"})) 
+            @RequestParam OrderStatus status) {
         
         adminOrderService.changeOrderStatus(orderId, status);
         return ApiResponse.success();
