@@ -11,4 +11,12 @@ public enum DiscountType {
     
     private final String displayName;
     private final String unit;
+    
+    public String formatDiscount(Integer value) {
+        if (this == PERCENT) {
+            return value + "%";
+        } else {
+            return value + "원";
+        }
+    }
 }

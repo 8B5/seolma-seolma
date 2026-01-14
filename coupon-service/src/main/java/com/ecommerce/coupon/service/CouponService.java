@@ -110,9 +110,15 @@ public class CouponService {
      * 사용자별 쿠폰 목록 조회
      */
     public List<CouponResponse> getUserCoupons(String userId) {
-        return couponRepository.findByUserIdOrderByIssuedAtDesc(userId)
-                .stream()
-                .map(CouponResponse::from)
+        List<Coupon> coupons = couponRepository.findByUserIdOrderByIssuedAtDesc(userId);
+        return coupons.stream()
+                .map(coupon -> {
+                    CouponTemplate template = couponTemplateRepository.findById(coupon.getTemplateId())
+                            .orElse(null);
+                    return template != null 
+                            ? CouponResponse.fromWithTemplate(coupon, template)
+                            : CouponResponse.from(coupon);
+                })
                 .collect(Collectors.toList());
     }
     
@@ -120,9 +126,15 @@ public class CouponService {
      * 사용자별 사용 가능한 쿠폰 목록 조회
      */
     public List<CouponResponse> getUserAvailableCoupons(String userId) {
-        return couponRepository.findByUserIdAndIsUsedFalseOrderByIssuedAtDesc(userId)
-                .stream()
-                .map(CouponResponse::from)
+        List<Coupon> coupons = couponRepository.findByUserIdAndIsUsedFalseOrderByIssuedAtDesc(userId);
+        return coupons.stream()
+                .map(coupon -> {
+                    CouponTemplate template = couponTemplateRepository.findById(coupon.getTemplateId())
+                            .orElse(null);
+                    return template != null 
+                            ? CouponResponse.fromWithTemplate(coupon, template)
+                            : CouponResponse.from(coupon);
+                })
                 .collect(Collectors.toList());
     }
     
@@ -150,6 +162,11 @@ public class CouponService {
         Coupon coupon = couponRepository.findByIdAndUserId(couponId, userId)
                 .orElseThrow(() -> new BusinessException(CouponResultCode.COUPON_NOT_FOUND));
         
-        return CouponResponse.from(coupon);
+        CouponTemplate template = couponTemplateRepository.findById(coupon.getTemplateId())
+                .orElse(null);
+        
+        return template != null 
+                ? CouponResponse.fromWithTemplate(coupon, template)
+                : CouponResponse.from(coupon);
     }
 }

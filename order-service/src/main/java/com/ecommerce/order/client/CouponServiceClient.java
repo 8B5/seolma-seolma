@@ -20,7 +20,7 @@ public class CouponServiceClient {
         try {
             webClientBuilder.build()
                     .patch()
-                    .uri(couponServiceUrl + "/api/v1/coupons/{couponId}/use", couponId)
+                    .uri(couponServiceUrl + "/internal/v1/coupons/{couponId}/use", couponId)
                     .header("X-User-Id", userId)
                     .retrieve()
                     .bodyToMono(Void.class)
@@ -33,12 +33,51 @@ public class CouponServiceClient {
     
     public CouponInfo getCouponInfo(Long couponId, String userId) {
         try {
-            // 실제로는 쿠폰 정보 조회 API 호출
-            // 현재는 임시로 더미 데이터 반환
-            return new CouponInfo("PERCENT", 10);
+            log.debug("Requesting coupon info: couponId={}, userId={}, url={}", couponId, userId, couponServiceUrl);
+            
+            com.ecommerce.common.response.ApiResponse<CouponResponse> response = webClientBuilder.build()
+                    .get()
+                    .uri(couponServiceUrl + "/internal/v1/coupons/{couponId}", couponId)
+                    .header("X-User-Id", userId)
+                    .retrieve()
+                    .bodyToMono(new org.springframework.core.ParameterizedTypeReference<com.ecommerce.common.response.ApiResponse<CouponResponse>>() {})
+                    .block();
+            
+            if (response == null || response.getData() == null) {
+                log.error("Empty response from coupon service: couponId={}", couponId);
+                throw new RuntimeException("쿠폰 정보를 찾을 수 없습니다");
+            }
+            
+            CouponResponse couponData = response.getData();
+            log.debug("Successfully retrieved coupon info: couponId={}, discountType={}, discountValue={}", 
+                    couponId, couponData.getDiscountType(), couponData.getDiscountValue());
+            
+            return new CouponInfo(couponData.getDiscountType(), couponData.getDiscountValue());
         } catch (Exception e) {
             log.error("Failed to get coupon info: couponId={}, userId={}", couponId, userId, e);
             throw new RuntimeException("쿠폰 정보 조회 실패", e);
+        }
+    }
+    
+    // Inner class for coupon response from coupon service
+    public static class CouponResponse {
+        private String discountType;
+        private Integer discountValue;
+        
+        public String getDiscountType() {
+            return discountType;
+        }
+        
+        public void setDiscountType(String discountType) {
+            this.discountType = discountType;
+        }
+        
+        public Integer getDiscountValue() {
+            return discountValue;
+        }
+        
+        public void setDiscountValue(Integer discountValue) {
+            this.discountValue = discountValue;
         }
     }
     

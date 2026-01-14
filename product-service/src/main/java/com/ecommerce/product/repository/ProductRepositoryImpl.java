@@ -46,9 +46,10 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
             builder.and(product.price.loe(condition.getMaxPrice()));
         }
         
-        // 데이터 조회
+        // 데이터 조회 (이미지 fetch join)
         List<Product> content = queryFactory
                 .selectFrom(product)
+                .leftJoin(product.images).fetchJoin()
                 .where(builder)
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -93,9 +94,10 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
             builder.and(product.price.loe(condition.getMaxPrice()));
         }
         
-        // 데이터 조회
+        // 데이터 조회 (이미지 fetch join)
         List<Product> content = queryFactory
                 .selectFrom(product)
+                .leftJoin(product.images).fetchJoin()
                 .where(builder)
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())

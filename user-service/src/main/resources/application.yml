@@ -36,7 +36,7 @@ management:
       show-details: when-authorized
   tracing:
     sampling:
-      probability: 1.0
+      probability: 0.0  # Zipkin 트레이싱 비활성화 (개발 환경)
 
 logging:
   level:

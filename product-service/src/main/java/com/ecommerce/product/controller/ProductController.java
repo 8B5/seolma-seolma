@@ -34,9 +34,10 @@ public class ProductController {
     @Operation(summary = "상품 목록 조회", description = "판매 중인 상품 목록을 조회합니다")
     @GetMapping
     public ApiResponse<Page<ProductResponse>> getProducts(
+            @Parameter(description = "검색 키워드") @RequestParam(required = false) String keyword,
             @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         
-        Page<ProductResponse> response = productService.getProducts(pageable);
+        Page<ProductResponse> response = productService.getProducts(keyword, pageable);
         return ApiResponse.success(response);
     }
     

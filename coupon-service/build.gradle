@@ -1,29 +1,37 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+    id 'war' // [1] 필수 추가: WAR 파일 생성을 위해 필요합니다.
+}
+
 dependencies {
     implementation project(':common-lib')
-    
+
     // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    
+
     // Database
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
-    
-    // QueryDSL
+
+    // QueryDSL (Jakarta 버전)
     implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
     annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
     annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
     annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
-    
-    // Swagger/OpenAPI Documentation
+
+    // Swagger/OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
-    
-    // WAR 배포를 위한 설정 (최신 Gradle 방식)
-    compileOnly 'org.springframework.boot:spring-boot-starter-tomcat'
+
+    // [2] 수정: compileOnly 대신 providedRuntime 사용
+    // 외장 톰캣 10.1.x와 내장 톰캣 라이브러리의 충돌을 방지하는 표준 방식입니다.
+    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
 }
 
-// QueryDSL 설정
+// QueryDSL 설정 (기존 유지)
 def querydslDir = "$buildDir/generated/querydsl"
 
 sourceSets {
@@ -36,4 +44,9 @@ tasks.withType(JavaCompile) {
 
 clean.doLast {
     file(querydslDir).deleteDir()
+}
+
+// [3] 추가: 빌드될 파일명을 서비스 이름으로 고정
+bootWar {
+    archiveFileName = 'coupon.war'
 }

@@ -31,7 +31,7 @@ sudo cp -r $TOMCAT_HOME/conf/* $TOMCAT_HOME/instances/user-service/conf/
 sudo mkdir -p $TOMCAT_HOME/instances/product-service/{conf,logs,temp,work,webapps}
 sudo cp -r $TOMCAT_HOME/conf/* $TOMCAT_HOME/instances/product-service/conf/
 
-# Coupon Service용 Tomcat 인스턴스 (포트 8082)
+# Coupon Service용 Tomcat 인스턴스 (포트 8081)
 sudo mkdir -p $TOMCAT_HOME/instances/coupon-service/{conf,logs,temp,work,webapps}
 sudo cp -r $TOMCAT_HOME/conf/* $TOMCAT_HOME/instances/coupon-service/conf/
 

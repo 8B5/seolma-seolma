@@ -5,10 +5,8 @@
 이 문서는 E-Commerce MSA 시스템의 모든 API 엔드포인트에 대한 상세한 명세를 제공합니다.
 
 ### 🏗️ 서비스 구성
-- **User Service** (포트 8080): 회원 관리 및 인증
-- **Product Service** (포트 8081): 상품 관리
-- **Coupon Service** (포트 8082): 쿠폰 발급 및 관리
-- **Order Service** (포트 8083): 주문 및 결제
+- **General Service** (포트 8080): 회원, 상품, 주문 통합 관리
+- **Coupon Service** (포트 8081): 쿠폰 발급 및 관리
 
 ### 🔐 인증 방식
 - **JWT Bearer Token**: `Authorization: Bearer {token}`
@@ -19,10 +17,8 @@
 
 ### 🌐 Swagger UI 접속
 각 서비스별 API 문서는 다음 URL에서 확인할 수 있습니다:
-- **User Service**: http://localhost:8080/swagger-ui/index.html
-- **Product Service**: http://localhost:8081/swagger-ui/index.html  
-- **Coupon Service**: http://localhost:8082/swagger-ui/index.html
-- **Order Service**: http://localhost:8083/swagger-ui/index.html
+- **General Service**: http://localhost:8080/swagger-ui.html
+- **Coupon Service**: http://localhost:8081/swagger-ui.html
 
 ### 📊 공통 응답 형식
 ```json
@@ -95,7 +91,7 @@ API 요청 시 필드 검증에 실패하면 해당 필드의 구체적인 에�
 
 ---
 
-## 🔑 1. User Service (포트 8080)
+## 🔑 1. General Service - User API (포트 8080)
 
 ### 1.1 인증 API
 
@@ -219,7 +215,7 @@ API 요청 시 필드 검증에 실패하면 해당 필드의 구체적인 에�
 
 ---
 
-## 🛍️ 2. Product Service (포트 8081)
+## 🛍️ 2. General Service - Product API (포트 8080)
 
 ### 2.1 사용자 상품 API
 
@@ -356,7 +352,7 @@ API 요청 시 필드 검증에 실패하면 해당 필드의 구체적인 에�
 
 ---
 
-## 🎫 3. Coupon Service (포트 8082)
+## 🎫 3. Coupon Service (포트 8081)
 
 ### 3.1 사용자 쿠폰 API
 
@@ -560,7 +556,7 @@ API 요청 시 필드 검증에 실패하면 해당 필드의 구체적인 에�
 
 ---
 
-## 📦 4. Order Service (포트 8083)
+## 📦 4. General Service - Order API (포트 8080)
 
 ### 4.1 사용자 주문 API
 
@@ -693,7 +689,7 @@ services:
   product-service:
     url: ${PRODUCT_SERVICE_URL:http://localhost:8081}
   coupon-service:
-    url: ${COUPON_SERVICE_URL:http://localhost:8082}
+    url: ${COUPON_SERVICE_URL:http://localhost:8081}
   order-service:
     url: ${ORDER_SERVICE_URL:http://localhost:8083}
 ```
@@ -767,26 +763,25 @@ JWT 토큰은 다음 정보를 포함합니다:
 
 ## 🚀 7. 배포 정보
 
-### 7.1 3-Tier 배포 구조
-**아키텍처**: Nginx (Tier 1) → Tomcat (Tier 2) → MariaDB (Tier 3)
+### 7.1 배포 구조
+**아키텍처**: Tomcat (Application) → MariaDB (Database)
 
-**개발환경**: 단일 서버에서 모든 서비스 실행
-**운영환경**: 서비스별 독립 배포
+**개발환경**: 로컬에서 2개 서비스 실행
+**운영환경**: EC2 2대에 서비스 분리 배포
 
-#### EC2-1 (General Services)
-- **User Service** (포트 8080): 인증/사용자 관리
-- **Product Service** (포트 8081): 상품 조회/관리
-- **Order Service** (포트 8083): 주문 처리
-
-#### EC2-2 (Coupon Dedicated Server)  
-- **Coupon Service** (포트 8082): 쿠폰 발급/관리 전용
+#### EC2-1 (Coupon Service)
+- **Coupon Service** (포트 8081): 쿠폰 발급/관리 전용
 - **목적**: 선착순 쿠폰 발급 시 트래픽 급증 모니터링
 
-### 7.2 Nginx 라우팅 규칙
-1. **쿠폰 API**: `/api/v1/coupons/**` → EC2-2 (전용 서버)
-2. **상품 API**: `/api/v1/products/**` → EC2-1
-3. **주문 API**: `/api/v1/orders/**` → EC2-1
-4. **사용자 API**: `/api/v1/users/**` → EC2-1 (Default)
+#### EC2-2 (General Service)
+- **General Service** (포트 8080): User + Product + Order 통합
+- **목적**: 일반 비즈니스 로직 처리
+
+### 7.2 ALB 라우팅 규칙
+1. **쿠폰 API**: `/api/v1/coupons/**` → EC2-1 (Coupon Service)
+2. **상품 API**: `/api/v1/products/**` → EC2-2 (General Service)
+3. **주문 API**: `/api/v1/orders/**` → EC2-2 (General Service)
+4. **사용자 API**: `/api/v1/users/**` → EC2-2 (General Service, Default)
 
 ### 7.3 쿠폰 서버 최적화
 - **독립 서버**: 선착순 쿠폰 트래픽 격리
@@ -810,13 +805,15 @@ JWT 토큰은 다음 정보를 포함합니다:
 ### 8.1 개발 환경 설정
 ```bash
 # 각 서비스 빌드
-./gradlew build
+gradlew build
 
 # 서비스별 실행 (개발 환경)
-java -jar user-service/build/libs/user-service.war --server.port=8080
-java -jar product-service/build/libs/product-service.war --server.port=8081
-java -jar coupon-service/build/libs/coupon-service.war --server.port=8082
-java -jar order-service/build/libs/order-service.war --server.port=8083
+gradlew :general-service:bootRun
+gradlew :coupon-service:bootRun
+
+# 또는 WAR 파일 빌드 후 실행
+build-general.bat
+build-coupon.bat
 ```
 
 ### 8.2 데이터베이스 스키마

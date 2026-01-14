@@ -8,15 +8,15 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-@Configuration
+@Configuration("userOpenApiConfig")
 public class OpenApiConfig {
 
     @Bean
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("User Service API")
-                        .description("E-Commerce MSA 사용자 서비스 API")
+                        .title("E-Commerce Unified Service API")
+                        .description("E-Commerce MSA 통합 서비스 API (User + Product + Order)")
                         .version("1.0.0"))
                 .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
                 .components(new Components()

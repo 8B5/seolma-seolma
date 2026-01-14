@@ -1,41 +1,66 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+    id 'war' // 1. WAR 플러그인 추가 (외장 톰캣 배포 필수)
+}
+
 dependencies {
     implementation project(':common-lib')
-    
+
     // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
-    
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
     // Database
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
-    
-    // QueryDSL
+
+    // QueryDSL (Jakarta EE 호환 버전)
     implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
     annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
     annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
     annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
-    
+
     // Password Encoding
     implementation 'org.springframework.security:spring-security-crypto'
-    
+
     // Swagger/OpenAPI Documentation
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
-    
-    // WAR 배포를 위한 설정 (최신 Gradle 방식)
-    compileOnly 'org.springframework.boot:spring-boot-starter-tomcat'
+
+    // 2. 외장 톰캣 배포를 위한 설정
+    // 내장 톰캣이 WAR 파일에 포함되지 않도록 하여 외장 톰캣(10.1.17)과 충돌을 방지합니다.
+    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
 }
 
 // QueryDSL 설정
-def querydslDir = "$buildDir/generated/querydsl"
+def querydslDir = layout.buildDirectory.dir("generated/querydsl").get().asFile
 
 sourceSets {
     main.java.srcDirs += [querydslDir]
 }
 
-tasks.withType(JavaCompile) {
-    options.annotationProcessorGeneratedSourcesDirectory = file(querydslDir)
+tasks.withType(JavaCompile).configureEach {
+    // 수정된 부분: set() 대신 직접 할당(=)을 사용하거나 아래 방식을 사용합니다.
+    options.generatedSourceOutputDirectory.set(file(querydslDir))
 }
 
 clean.doLast {
     file(querydslDir).deleteDir()
+}
+
+// 3. 빌드될 WAR 파일 이름 설정 (선택 사항)
+bootWar {
+    archiveFileName = 'user.war' // 이름서비스 별로 주기
+}
+
+
+// 다른 프로젝트에서 의존성으로 사용 가능하도록 설정
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = true
 }

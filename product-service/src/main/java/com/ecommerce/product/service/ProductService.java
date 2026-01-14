@@ -46,10 +46,10 @@ public class ProductService {
         return ProductResponse.from(product);
     }
     
-    public Page<ProductResponse> getProducts(Pageable pageable) {
+    public Page<ProductResponse> getProducts(String keyword, Pageable pageable) {
         // 유효한 정렬 필드만 허용
         Pageable validatedPageable = validateAndFixPageable(pageable);
-        return productRepository.findAvailableProducts(validatedPageable)
+        return productRepository.findAvailableProducts(keyword, validatedPageable)
                 .map(ProductResponse::from);
     }
     

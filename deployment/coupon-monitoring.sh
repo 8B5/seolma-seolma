@@ -24,7 +24,7 @@ df -h | grep -E "/$|/tmp"
 # 네트워크 연결 수
 echo
 echo "🌐 네트워크 연결 수:"
-ss -tuln | grep :8082 | wc -l
+ss -tuln | grep :8081 | wc -l
 
 # Tomcat 프로세스 상태
 echo
