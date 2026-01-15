@@ -30,7 +30,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/internal/**").permitAll()  // 내부 서비스 간 통신은 인증 없이 허용
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")  // 관리자 API는 ADMIN 권한 필요 (먼저 체크)
-                .requestMatchers("/api/v1/coupons/templates/available").permitAll()  // 쿠폰 목록은 인증 없이 허용
+                .requestMatchers("/api/v1/coupons/templates/**").permitAll()  // 쿠폰 템플릿 조회는 인증 없이 허용
                 .requestMatchers("/api/v1/coupons/**").authenticated()  // 쿠폰 발급/조회는 인증 필요
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()

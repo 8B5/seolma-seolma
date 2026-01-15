@@ -146,7 +146,7 @@ Environment="JWT_SECRET=your-jwt-secret-key-at-least-256-bits-long"
 Environment="JWT_VALIDITY=3600"
 
 # 외부 서비스 URL (EC2-1의 Private IP 사용)
-Environment="COUPON_SERVICE_URL=http://10.0.1.10:8081"
+Environment="COUPON_SERVICE_URL=http://10.100.2.100:8081"
 
 # 파일 스토리지 설정
 Environment="FILE_STORAGE_TYPE=s3"
@@ -250,7 +250,7 @@ curl http://localhost:8080/actuator/health
 
 ```bash
 # EC2-2에서 EC2-1 호출 테스트 (서비스 간 통신)
-curl http://10.0.1.10:8081/actuator/health
+curl http://10.100.2.100:8081/actuator/health
 
 # 외부에서 ALB를 통한 테스트
 curl http://your-alb-dns/api/v1/products
@@ -324,7 +324,7 @@ sudo systemctl restart tomcat
 ### 서비스 간 통신
 
 - EC2-2 (General Service)에서 EC2-1 (Coupon Service) 호출
-- **Private IP 사용**: `http://10.0.1.10:8081`
+- **Private IP 사용**: `http://10.100.2.100:8081`
 - EC2-1 보안 그룹에서 EC2-2 보안 그룹의 8081 포트 허용 필요
 
 ---

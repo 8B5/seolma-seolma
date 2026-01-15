@@ -12,8 +12,8 @@ localhost:8081 - Coupon Service
 ### 운영 환경 (AWS)
 
 ```
-EC2-1 (10.0.1.10:8081) - Coupon Service
-EC2-2 (10.0.1.20:8080) - General Service (User + Product + Order 통합)
+EC2-1 (10.100.2.100:8081) - Coupon Service
+EC2-2 (10.100.2.200:8080) - General Service (User + Product + Order 통합)
 ```
 
 ---
@@ -123,7 +123,7 @@ export DB_NAME=common_db
 export DB_USERNAME=admin
 export DB_PASSWORD=your-password
 export JWT_SECRET=your-jwt-secret
-export COUPON_SERVICE_URL=http://10.0.1.10:8081
+export COUPON_SERVICE_URL=http://10.100.2.100:8081
 export PRODUCT_SERVICE_URL=http://localhost:8080
 export USER_SERVICE_URL=http://localhost:8080
 ```
@@ -175,7 +175,7 @@ external:
 external:
   services:
     coupon-service:
-      url: http://10.0.1.10:8081  # EC2-1 Private IP
+      url: http://10.100.2.100:8081  # EC2-1 Private IP
 ```
 
 ---
