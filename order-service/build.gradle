@@ -15,6 +15,7 @@ dependencies {
     // Persistence & Security
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
     // Database
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'

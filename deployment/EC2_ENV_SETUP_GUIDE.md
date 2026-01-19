@@ -54,13 +54,15 @@ export CATALINA_OPTS="$CATALINA_OPTS -Xms512m -Xmx1024m"
 export SERVER_PORT=8081
 
 # 데이터베이스 설정
-export DB_URL="jdbc:mysql://your-rds-endpoint:3306/coupon_db?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true"
+export DB_HOST="your-rds-endpoint.xxxxx.ap-northeast-2.rds.amazonaws.com"
+export DB_PORT=3306
+export DB_NAME="coupon_db"
 export DB_USERNAME="coupon_user"
 export DB_PASSWORD="your_secure_password"
 
 # JWT 설정
 export JWT_SECRET="your-jwt-secret-key-min-256-bits-long"
-export JWT_EXPIRATION=3600000
+export JWT_VALIDITY=3600
 
 # CORS 설정
 export CORS_ALLOWED_ORIGINS="http://your-frontend-domain.com,http://localhost:3000"
@@ -87,20 +89,23 @@ sudo nano setenv.sh
 ```bash
 #!/bin/bash
 
-# JVM 옵션
-export CATALINA_OPTS="$CATALINA_OPTS -Xms1024m -Xmx2048m"
+# JVM 옵션 (t3.nano용 - 권장하지 않음)
+# export CATALINA_OPTS="$CATALINA_OPTS -Xms1024m -Xmx2048m"  # 원래 권장 설정
+export CATALINA_OPTS="$CATALINA_OPTS -Xms256m -Xmx400m"      # t3.nano용 (위험)
 
 # 서버 포트
 export SERVER_PORT=8080
 
 # 데이터베이스 설정 (User/Product/Order 통합 DB)
-export DB_URL="jdbc:mysql://your-rds-endpoint:3306/general_db?useSSL=false&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true"
+export DB_HOST="your-rds-endpoint.xxxxx.ap-northeast-2.rds.amazonaws.com"
+export DB_PORT=3306
+export DB_NAME="common_db"
 export DB_USERNAME="general_user"
 export DB_PASSWORD="your_secure_password"
 
 # JWT 설정 (Coupon Service와 동일한 값 사용)
 export JWT_SECRET="your-jwt-secret-key-min-256-bits-long"
-export JWT_EXPIRATION=3600000
+export JWT_VALIDITY=3600
 
 # 외부 서비스 URL (EC2-1의 Private IP 사용)
 export COUPON_SERVICE_URL="http://172.31.x.x:8081"
@@ -110,7 +115,7 @@ export CORS_ALLOWED_ORIGINS="http://your-frontend-domain.com,http://localhost:30
 
 # 파일 저장 경로
 export FILE_UPLOAD_DIR="/opt/tomcat/uploads"
-export FILE_MAX_SIZE=10485760
+export FILE_STORAGE_TYPE="local"
 
 # 로그 레벨
 export LOGGING_LEVEL_ROOT=INFO
@@ -136,11 +141,13 @@ sudo nano /etc/environment
 ```bash
 # Coupon Service 환경변수
 SERVER_PORT=8081
-DB_URL="jdbc:mysql://your-rds-endpoint:3306/coupon_db?useSSL=false&serverTimezone=Asia/Seoul"
-DB_USERNAME="coupon_user"
-DB_PASSWORD="your_secure_password"
+DB_HOST=${PRD_DB_HOST}
+DB_PORT=3306
+DB_NAME=${PRD_COUPON_DB_NAME}
+DB_USERNAME=${PRD_COUPON_DB_USERNAME}
+DB_PASSWORD=${PRD_COUPON_DB_PASSWORD}
 JWT_SECRET="your-jwt-secret-key"
-JWT_EXPIRATION=3600000
+JWT_VALIDITY=3600
 CORS_ALLOWED_ORIGINS="http://your-frontend-domain.com"
 ```
 
@@ -153,15 +160,17 @@ sudo nano /etc/environment
 ```bash
 # General Service 환경변수
 SERVER_PORT=8080
-DB_URL="jdbc:mysql://your-rds-endpoint:3306/general_db?useSSL=false&serverTimezone=Asia/Seoul"
-DB_USERNAME="general_user"
-DB_PASSWORD="your_secure_password"
+DB_HOST=${PRD_DB_HOST}
+DB_PORT=3306
+DB_NAME=${PRD_GENERAL_DB_NAME}
+DB_USERNAME=${PRD_GENERAL_DB_USERNAME}
+DB_PASSWORD=${PRD_GENERAL_DB_PASSWORD}
 JWT_SECRET="your-jwt-secret-key"
-JWT_EXPIRATION=3600000
+JWT_VALIDITY=3600
 COUPON_SERVICE_URL="http://172.31.x.x:8081"
 CORS_ALLOWED_ORIGINS="http://your-frontend-domain.com"
 FILE_UPLOAD_DIR="/opt/tomcat/uploads"
-FILE_MAX_SIZE=10485760
+FILE_STORAGE_TYPE="local"
 ```
 
 **적용:**
@@ -185,7 +194,9 @@ sudo nano /opt/tomcat/conf/Catalina/localhost/general-service.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <Context>
     <Environment name="SERVER_PORT" value="8080" type="java.lang.String"/>
-    <Environment name="DB_URL" value="jdbc:mysql://your-rds:3306/general_db" type="java.lang.String"/>
+    <Environment name="DB_HOST" value="your-rds-endpoint.xxxxx.ap-northeast-2.rds.amazonaws.com" type="java.lang.String"/>
+    <Environment name="DB_PORT" value="3306" type="java.lang.String"/>
+    <Environment name="DB_NAME" value="common_db" type="java.lang.String"/>
     <Environment name="DB_USERNAME" value="general_user" type="java.lang.String"/>
     <Environment name="DB_PASSWORD" value="your_password" type="java.lang.String"/>
     <Environment name="JWT_SECRET" value="your-jwt-secret" type="java.lang.String"/>
@@ -305,7 +316,7 @@ sudo tail -f /opt/tomcat/logs/catalina.out
 ps aux | grep tomcat
 
 # 환경변수 확인
-sudo cat /proc/{PID}/environ | tr '\0' '\n' | grep -E 'DB_|JWT_|COUPON_'
+sudo cat /proc/{PID}/environ | tr '\0' '\n' | grep -E 'DB_|JWT_|COUPON_|SERVER_PORT'
 ```
 
 ### 애플리케이션 로그에서 확인
@@ -370,27 +381,59 @@ sudo netstat -tlnp | grep 8080
 sudo kill -9 {PID}
 ```
 
+### 5. WAR 컨텍스트 패스 문제
+
+WAR 파일이 `general-service-1.0.0.war`로 배포되면 컨텍스트 패스가 `/general-service-1.0.0`이 됩니다.
+
+**해결 방법 1: ROOT.war로 배포 (권장)**
+```bash
+# WAR 파일을 ROOT.war로 이름 변경하여 배포
+sudo cp /tmp/general-service-1.0.0.war /opt/tomcat/webapps/ROOT.war
+sudo cp /tmp/coupon-service.war /opt/tomcat/webapps/ROOT.war
+```
+
+**해결 방법 2: 컨텍스트 패스 포함하여 접근**
+```bash
+# Health Check 경로
+curl http://localhost:8080/general-service-1.0.0/actuator/health
+curl http://localhost:8081/coupon/actuator/health
+
+# API 경로
+curl http://localhost:8080/general-service-1.0.0/api/v1/users/me
+```
+
+**ALB Health Check 설정:**
+- General Service: `/general-service-1.0.0/actuator/health` 또는 ROOT.war 배포 시 `/actuator/health`
+- Coupon Service: `/coupon/actuator/health` 또는 ROOT.war 배포 시 `/actuator/health`
+
 ---
 
 ## 📝 환경변수 체크리스트
 
 ### Coupon Service (EC2-1)
 - [ ] SERVER_PORT=8081
-- [ ] DB_URL (Coupon DB)
+- [ ] DB_HOST (Coupon DB 호스트)
+- [ ] DB_PORT=3306
+- [ ] DB_NAME (Coupon DB 이름)
 - [ ] DB_USERNAME
 - [ ] DB_PASSWORD
 - [ ] JWT_SECRET
+- [ ] JWT_VALIDITY
 - [ ] CORS_ALLOWED_ORIGINS
 
 ### General Service (EC2-2)
 - [ ] SERVER_PORT=8080
-- [ ] DB_URL (General DB)
+- [ ] DB_HOST (General DB 호스트)
+- [ ] DB_PORT=3306
+- [ ] DB_NAME (General DB 이름)
 - [ ] DB_USERNAME
 - [ ] DB_PASSWORD
 - [ ] JWT_SECRET (Coupon과 동일)
+- [ ] JWT_VALIDITY
 - [ ] COUPON_SERVICE_URL (EC2-1 Private IP)
 - [ ] CORS_ALLOWED_ORIGINS
 - [ ] FILE_UPLOAD_DIR
+- [ ] FILE_STORAGE_TYPE
 
 ### 네트워크
 - [ ] EC2-1 Private IP 확인
@@ -415,6 +458,25 @@ sudo chown tomcat:tomcat /opt/tomcat/bin/setenv.sh
 4. **JWT Secret**: 최소 256비트 이상의 강력한 키 사용
 
 5. **CORS**: 프로덕션에서는 정확한 도메인만 허용
+
+---
+
+## 💾 데이터베이스 정보
+
+### MariaDB 버전
+- **권장 버전**: MariaDB 10.6 이상
+- **호환성**: MySQL 8.0과 호환
+- **JDBC 드라이버**: `org.mariadb.jdbc.Driver`
+
+### RDS 설정 예시
+```bash
+# RDS MariaDB 10.11.x 생성 시 설정
+Engine: MariaDB
+Version: 10.11.8
+Instance Class: db.t3.micro (개발) / db.r5.large (운영)
+Storage: 20GB (개발) / 100GB+ (운영)
+Multi-AZ: No (개발) / Yes (운영)
+```
 
 ---
 
@@ -484,3 +546,62 @@ sudo systemctl daemon-reload
 sudo systemctl enable tomcat
 sudo systemctl start tomcat
 ```
+
+---
+
+## ⚠️ t3.nano 배포 시 주의사항
+
+### 메모리 부족 문제
+
+**t3.nano 사양:**
+- 메모리: 512MB
+- General Service 권장 메모리: 2GB+
+
+### t3.nano에서 강제 실행 시 설정
+
+```bash
+# 극도로 제한된 메모리 설정 (안정성 보장 불가)
+export CATALINA_OPTS="$CATALINA_OPTS -Xms128m -Xmx350m -XX:MaxMetaspaceSize=128m"
+
+# DB 커넥션 풀 최소화
+export HIKARI_MAXIMUM_POOL_SIZE=3
+export HIKARI_MINIMUM_IDLE=1
+
+# 로그 레벨 최소화
+export LOGGING_LEVEL_ROOT=WARN
+export LOGGING_LEVEL_APP=ERROR
+```
+
+### 예상되는 문제점
+
+1. **OutOfMemoryError 빈발**
+2. **응답 속도 극도로 느림**
+3. **동시 사용자 처리 불가 (1-2명 한계)**
+4. **DB 커넥션 부족**
+5. **JVM GC로 인한 잦은 멈춤**
+
+### 권장 대안
+
+```bash
+# 개발환경 최소 사양
+t3.small  (2GB RAM) - 약 $16/월
+t3.medium (4GB RAM) - 약 $33/월
+
+# 또는 Coupon Service만 t3.nano로 분리
+EC2-1: t3.nano  (Coupon Service만)
+EC2-2: t3.small (General Service)
+```
+
+### 모니터링 필수
+
+t3.nano 사용 시 반드시 모니터링 설정:
+
+```bash
+# 메모리 사용량 실시간 모니터링
+watch -n 1 'free -h && ps aux --sort=-%mem | head -10'
+
+# JVM 메모리 모니터링
+jstat -gc -t $(pgrep java) 5s
+```
+
+**결론: t3.nano는 General Service 운영에 부적합합니다. 최소 t3.small 권장합니다.**

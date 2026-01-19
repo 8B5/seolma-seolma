@@ -40,7 +40,7 @@ public class UserSecurityConfig {
                 // Static resources (이미지 등)
                 .requestMatchers("/images/**").permitAll()
                 // User Service endpoints
-                .requestMatchers("/api/v1/auth/**", "/api/v1/users/auth/**").permitAll()
+                .requestMatchers("/api/v1/auth/**", "/api/v1/users/auth/**", "/users/auth/**").permitAll()
                 .requestMatchers("/api/v1/users/me").authenticated()
                 // Product Service endpoints
                 .requestMatchers("/api/v1/products/**").permitAll()

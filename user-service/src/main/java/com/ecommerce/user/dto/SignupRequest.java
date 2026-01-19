@@ -21,7 +21,7 @@ public class SignupRequest {
     
     @NotBlank(message = "비밀번호는 필수입니다")
     @Size(min = 8, max = 100, message = "비밀번호는 8자 이상 100자 이하여야 합니다")
-    @Pattern(regexp = "^(?=.*[a-z])(?=.*\\d)(?=.*[@$!%*?&])[a-z\\d@$!%*?&]+$",
+    @Pattern(regexp = "^(?=.*[a-zA-Z])(?=.*\\d)(?=.*[@$!%*?&])[a-zA-Z\\d@$!%*?&]+$",
              message = "비밀번호는 영문, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다")
     @Schema(description = "비밀번호 (8자 이상, 대소문자/숫자/특수문자 포함)", example = "Password123!", required = true)
     private String password;
