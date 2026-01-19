@@ -62,3 +62,5 @@ uploads/
 .env
 .env.local
 .env.*.local
+gradle-8.5-bin.zip
+gradle-8.5-bin.zip
