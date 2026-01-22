@@ -76,8 +76,15 @@ file:
     local:
       upload-dir: ${FILE_UPLOAD_DIR:./uploads}
     s3:
-      bucket-name: ${S3_BUCKET_NAME:}
+      bucket-name: ${S3_BUCKET_NAME:sm-prd-seolma-s3}
       region: ${AWS_REGION:ap-northeast-2}
+
+# AWS S3 설정
+aws:
+  region: ${AWS_REGION:ap-northeast-2}
+  s3:
+    bucket: ${AWS_S3_BUCKET:sm-prd-seolma-s3}
+    cloudfront-domain: ${AWS_CLOUDFRONT_DOMAIN:}
 
 ---
 spring:
@@ -86,7 +93,7 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:common_db}
+    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:common_db}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
     username: ${DB_USERNAME:dev_user}
     password: ${DB_PASSWORD:dev_password_123}
     driver-class-name: org.mariadb.jdbc.Driver
@@ -119,7 +126,7 @@ spring:
       on-profile: prd
 
   datasource:
-    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.mariadb.jdbc.Driver

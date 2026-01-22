@@ -38,6 +38,10 @@ public class LocalFileStorageService implements FileStorageService {
     
     @Override
     public String storeFile(MultipartFile file, String directory) throws IOException {
+        System.out.println("=== LocalFileStorageService.storeFile called ===");
+        System.out.println("Upload Dir: " + uploadDir);
+        System.out.println("Directory: " + directory);
+        
         validateFile(file);
         
         // 디렉토리별 저장 경로 생성
@@ -59,6 +63,7 @@ public class LocalFileStorageService implements FileStorageService {
         // 접근 가능한 URL 반환
         String fileUrl = "/images/" + directory + "/" + uniqueFilename;
         
+        System.out.println("Local File Upload Success - URL: " + fileUrl);
         log.info("File stored successfully: {}", fileUrl);
         return fileUrl;
     }

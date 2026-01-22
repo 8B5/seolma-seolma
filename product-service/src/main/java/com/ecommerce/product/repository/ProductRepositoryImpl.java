@@ -46,15 +46,25 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
             builder.and(product.price.loe(condition.getMaxPrice()));
         }
         
-        // 데이터 조회 (이미지 fetch join)
-        List<Product> content = queryFactory
-                .selectFrom(product)
-                .leftJoin(product.images).fetchJoin()
+        // 먼저 ID만 조회 (페이징 적용)
+        List<Long> productIds = queryFactory
+                .select(product.id)
+                .from(product)
                 .where(builder)
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .orderBy(product.createdAt.desc())
                 .fetch();
+        
+        // ID로 실제 데이터 조회 (이미지 fetch join)
+        List<Product> content = productIds.isEmpty() ? 
+                List.of() :
+                queryFactory
+                    .selectFrom(product)
+                    .leftJoin(product.images).fetchJoin()
+                    .where(product.id.in(productIds))
+                    .orderBy(product.createdAt.desc())
+                    .fetch();
         
         // 카운트 쿼리
         JPAQuery<Long> countQuery = queryFactory
@@ -94,15 +104,25 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
             builder.and(product.price.loe(condition.getMaxPrice()));
         }
         
-        // 데이터 조회 (이미지 fetch join)
-        List<Product> content = queryFactory
-                .selectFrom(product)
-                .leftJoin(product.images).fetchJoin()
+        // 먼저 ID만 조회 (페이징 적용)
+        List<Long> productIds = queryFactory
+                .select(product.id)
+                .from(product)
                 .where(builder)
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .orderBy(product.createdAt.desc())
                 .fetch();
+        
+        // ID로 실제 데이터 조회 (이미지 fetch join)
+        List<Product> content = productIds.isEmpty() ? 
+                List.of() :
+                queryFactory
+                    .selectFrom(product)
+                    .leftJoin(product.images).fetchJoin()
+                    .where(product.id.in(productIds))
+                    .orderBy(product.createdAt.desc())
+                    .fetch();
         
         // 카운트 쿼리
         JPAQuery<Long> countQuery = queryFactory

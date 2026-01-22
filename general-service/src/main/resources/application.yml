@@ -76,8 +76,15 @@ file:
     local:
       upload-dir: ${FILE_UPLOAD_DIR:./uploads}
     s3:
-      bucket-name: ${S3_BUCKET_NAME:}
+      bucket-name: ${S3_BUCKET_NAME:sm-prd-seolma-s3}
       region: ${AWS_REGION:ap-northeast-2}
+
+# AWS S3 설정
+aws:
+  region: ${AWS_REGION:ap-northeast-2}
+  s3:
+    bucket: ${AWS_S3_BUCKET:sm-prd-seolma-s3}
+    cloudfront-domain: ${AWS_CLOUDFRONT_DOMAIN:}
 
 ---
 spring:

@@ -115,7 +115,12 @@ export CORS_ALLOWED_ORIGINS="http://your-frontend-domain.com,http://localhost:30
 
 # 파일 저장 경로
 export FILE_UPLOAD_DIR="/opt/tomcat/uploads"
-export FILE_STORAGE_TYPE="local"
+export FILE_STORAGE_TYPE="s3"
+
+# AWS S3 설정 (S3 사용 시)
+export AWS_S3_BUCKET="sm-prd-seolma-s3"
+export AWS_REGION="ap-northeast-2"
+export AWS_CLOUDFRONT_DOMAIN=""  # CloudFront 사용 시 도메인 입력
 
 # 로그 레벨
 export LOGGING_LEVEL_ROOT=INFO
@@ -170,7 +175,10 @@ JWT_VALIDITY=3600
 COUPON_SERVICE_URL="http://172.31.x.x:8081"
 CORS_ALLOWED_ORIGINS="http://your-frontend-domain.com"
 FILE_UPLOAD_DIR="/opt/tomcat/uploads"
-FILE_STORAGE_TYPE="local"
+FILE_STORAGE_TYPE="s3"
+AWS_S3_BUCKET="sm-prd-seolma-s3"
+AWS_REGION="ap-northeast-2"
+AWS_CLOUDFRONT_DOMAIN=""
 ```
 
 **적용:**
@@ -605,3 +613,186 @@ jstat -gc -t $(pgrep java) 5s
 ```
 
 **결론: t3.nano는 General Service 운영에 부적합합니다. 최소 t3.small 권장합니다.**
+
+---
+
+## 🗄️ S3 파일 저장소 설정
+
+분산 환경에서 이미지 파일을 공유하기 위해 S3를 사용합니다.
+
+### 1. S3 버킷 생성
+
+```bash
+# AWS CLI로 버킷 생성
+aws s3 mb s3://sm-prd-seolma-s3 --region ap-northeast-2
+
+# 버킷 정책 설정 (공개 읽기 허용)
+aws s3api put-bucket-policy --bucket sm-prd-seolma-s3 --policy '{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::sm-prd-seolma-s3/*"
+    }
+  ]
+}'
+```
+
+### 2. IAM 역할 생성 및 EC2 연결
+
+**IAM 정책 생성:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::sm-prd-seolma-s3",
+        "arn:aws:s3:::sm-prd-seolma-s3/*"
+      ]
+    }
+  ]
+}
+```
+
+**IAM 역할 생성 및 EC2 연결:**
+```bash
+# IAM 역할 생성
+aws iam create-role --role-name EC2-S3-Access-Role --assume-role-policy-document '{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}'
+
+# 정책 연결
+aws iam attach-role-policy --role-name EC2-S3-Access-Role --policy-arn arn:aws:iam::YOUR-ACCOUNT-ID:policy/S3-Access-Policy
+
+# 인스턴스 프로파일 생성
+aws iam create-instance-profile --instance-profile-name EC2-S3-Profile
+aws iam add-role-to-instance-profile --instance-profile-name EC2-S3-Profile --role-name EC2-S3-Access-Role
+
+# EC2에 IAM 역할 연결
+aws ec2 associate-iam-instance-profile --instance-id i-1234567890abcdef0 --iam-instance-profile Name=EC2-S3-Profile
+```
+
+### 3. S3 환경변수 설정
+
+**setenv.sh에 추가:**
+```bash
+# 파일 저장소 타입을 S3로 변경
+export FILE_STORAGE_TYPE="s3"
+
+# AWS S3 설정
+export AWS_S3_BUCKET="sm-prd-seolma-s3"
+export AWS_REGION="ap-northeast-2"
+export AWS_CLOUDFRONT_DOMAIN=""  # CloudFront 사용 시 도메인 입력
+```
+
+### 4. S3 연결 테스트
+
+```bash
+# AWS CLI로 S3 접근 테스트
+aws s3 ls s3://sm-prd-seolma-s3/
+
+# 테스트 파일 업로드
+echo "test" > test.txt
+aws s3 cp test.txt s3://sm-prd-seolma-s3/test.txt
+
+# 업로드된 파일 확인
+curl https://sm-prd-seolma-s3.s3.ap-northeast-2.amazonaws.com/test.txt
+```
+
+### 5. CloudFront CDN 설정 (선택사항)
+
+더 빠른 이미지 로딩을 위해 CloudFront를 설정할 수 있습니다:
+
+```bash
+# CloudFront 배포 생성
+aws cloudfront create-distribution --distribution-config '{
+  "CallerReference": "sm-prd-seolma-s3-'$(date +%s)'",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "S3-sm-prd-seolma-s3",
+        "DomainName": "sm-prd-seolma-s3.s3.ap-northeast-2.amazonaws.com",
+        "S3OriginConfig": {
+          "OriginAccessIdentity": ""
+        }
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "S3-sm-prd-seolma-s3",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "TrustedSigners": {
+      "Enabled": false,
+      "Quantity": 0
+    },
+    "ForwardedValues": {
+      "QueryString": false,
+      "Cookies": {
+        "Forward": "none"
+      }
+    }
+  },
+  "Comment": "CDN for product images",
+  "Enabled": true
+}'
+```
+
+CloudFront 도메인을 받으면 환경변수에 추가:
+```bash
+export AWS_CLOUDFRONT_DOMAIN="d1234567890abc.cloudfront.net"
+```
+
+---
+
+## 🔍 S3 관련 문제 해결
+
+### 1. S3 권한 오류
+
+```bash
+# EC2 IAM 역할 확인
+curl http://169.254.169.254/latest/meta-data/iam/security-credentials/
+
+# S3 접근 테스트
+aws s3 ls s3://sm-prd-seolma-s3/ --region ap-northeast-2
+```
+
+### 2. 이미지 업로드 실패
+
+```bash
+# 애플리케이션 로그 확인
+sudo tail -f /opt/tomcat/logs/catalina.out
+
+# S3 버킷 정책 확인
+aws s3api get-bucket-policy --bucket sm-prd-seolma-s3
+```
+
+### 3. 이미지 로딩 실패
+
+```bash
+# S3 URL 직접 테스트
+curl -I https://sm-prd-seolma-s3.s3.ap-northeast-2.amazonaws.com/products/test-image.jpg
+
+# CORS 설정 확인 (필요시)
+aws s3api get-bucket-cors --bucket sm-prd-seolma-s3
+```
